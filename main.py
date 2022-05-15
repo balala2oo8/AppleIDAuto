@@ -44,6 +44,14 @@ token = ''
 chat_id = ''
 delay = 10
 
+# 保存错误页面
+
+
+def create_error_file(html):
+    with open(mypath + "/error.html", "w") as op:
+        op.write(html)
+        op.close()
+
 
 # 查找元素 by class
 
@@ -131,7 +139,7 @@ def check_appleid(item):
         driver.get(
             "https://iforgot.apple.com/password/verify/appleid?language=en")
         # 等待文本框出现且可用
-        id_input =  find_enable_by_class(driver, "form-textbox-input")
+        id_input = find_enable_by_class(driver, "form-textbox-input")
         id_input.click()
         id_input.send_keys(apple_id)
         # 等待按钮可点击
@@ -191,7 +199,6 @@ def check_appleid(item):
             item["last_reset_time"] = now
             update_pwd(api_host, apple_id, pwd_new)
             sendMsg(msg)
-            time.sleep(3)
             return True
         # 解锁
         elif msg == "Select how you want to unlock your account:":
@@ -205,7 +212,6 @@ def check_appleid(item):
                 find_enable_by_class(driver, "last").click()
                 msg = "大事不好了，%s 只能用邮件解锁，已经给你发邮件了..." % apple_id
                 sendMsg(msg)
-                time.sleep(2)
                 return
             # 通过回答问题解锁
             oq[1].click()
@@ -237,8 +243,6 @@ def check_appleid(item):
             pwd_inputs[1].send_keys(pwd_new)
             time.sleep(1)
             find_enable_by_class(driver, "last").click()
-            time.sleep(2)
-            find_enable_by_class(driver, "last").click()
             find_element_by_class(driver, "done")
 
             msg = apple_id + " 已解锁，新密码 %s " % pwd_new
@@ -246,7 +250,6 @@ def check_appleid(item):
             item["last_reset_time"] = now
             update_pwd(api_host, apple_id, pwd_new)
             sendMsg(msg)
-            time.sleep(3)
             return True
         # 双重认证
         elif msg == "Confirm your phone number.":
@@ -268,9 +271,9 @@ def check_appleid(item):
                 answers[i].send_keys(
                     qa[questions[i].get_attribute("innerText")])
             find_enable_by_class(driver, "last").click()
-            time.sleep(3)
+            time.sleep(1)
             find_enable_by_class(driver, "last").click()
-            time.sleep(3)
+            time.sleep(1)
             # 设置密码 createPwd
             pwd_new = createPwd(12)
             pwd_inputs = driver.find_elements(
@@ -288,7 +291,6 @@ def check_appleid(item):
             item["last_reset_time"] = now
             update_pwd(api_host, apple_id, pwd_new)
             sendMsg(msg)
-            time.sleep(3)
             return True
         # 验证未通过(错误)
         elif msg == "Having trouble signing in?":
@@ -305,7 +307,8 @@ def check_appleid(item):
         msg = '检查 %s 时，超时了。%s' % (apple_id, str(e))
         item["status"] = 0
         sendMsg(msg)
-    finally:        
+        create_error_file(driver.page_source)
+    finally:
         driver.quit()
 
 
@@ -323,7 +326,7 @@ for i, item in enumerate(apple_ids):
     if flag:
         save = flag
     # str_time = time.strftime(u"%Y年%m月%d日 %H:%M:%S",time.localtime(item['last_reset_time']))
-    str_time = time.strftime(u"%Y年%m月%d日 %H:%M:%S",
+    str_time = time.strftime("%Y年%m月%d日 %H:%M:%S",
                              time.localtime(round(time.time())))
     apple_data.append({"id": item['id'], "passwd": item['passwd'],
                       "status": item["status"], "last_reset_time": str_time})
@@ -336,8 +339,8 @@ with open(mypath + '/data.json', 'w', encoding='utf-8') as f:
     json.dump(apple_data, f, indent=4)
 if save:
     print('正在更新 config 数据...')
-    with open(mypath + '/config.json', 'w') as f:
-        json.dump(config, f, indent=4)
+    with open(mypath + '/config.json', 'w', encoding='utf-8') as f:
+        json.dump(config, f, ensure_ascii=False, indent=4)
 
 print("执行完成！即将退出...")
 time.sleep(3)
