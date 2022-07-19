@@ -15,6 +15,7 @@ import json
 import re
 import telegram
 import requests
+import ddddocr
 
 
 mypath = os.path.split(os.path.realpath(__file__))[0]
@@ -36,6 +37,8 @@ options.add_argument('--disable-gpu')  # 谷歌文档提到需要加上这个属
 if os.name == "posix":
     # 浏览器不提供可视化页面. linux下如果系统不支持可视化不加这条会启动失败
     options.add_argument('--headless')
+
+ocr = ddddocr.DdddOcr(show_ad=False)
 
 user_ag = "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/99.0.4844.74 Safari/537.36"
 options.add_argument('user-agent=%s' % user_ag)
@@ -74,6 +77,13 @@ def find_enable_by_class(driver, class_name):
     return WebDriverWait(driver, delay).until(EC.element_to_be_clickable((By.CLASS_NAME, class_name)), '元素 "%s" 不可用' % class_name)
 
 
+# 查找元素 by css
+
+
+def find_element_by_css(driver, css):
+    return WebDriverWait(driver, delay).until(EC.element_to_be_clickable((By.CSS_SELECTOR, css)), 'css元素 "%s" 不可用' % css)
+
+
 # 发送TG消息
 
 
@@ -109,7 +119,7 @@ def createPwd(passwordLength):
         # 不包含重复字符的密码
         pw = ''.join(random.sample(str, k=passwordLength))
         # 可能包含重复字符的密码
-        #pw = ''.join(random.choices(str, k=passwordLength))
+        # pw = ''.join(random.choices(str, k=passwordLength))
         if re.match(r'^(?=.*[a-z])(?=.*[A-Z])(?=.*\d)', pw):
             print("最终密码：%s" % pw)
             return pw
@@ -139,19 +149,49 @@ def check_appleid(item):
         driver.get(
             "https://iforgot.apple.com/password/verify/appleid?language=en")
         # 等待文本框出现且可用
-        id_input = find_enable_by_class(driver, "form-textbox-input")
+        id_input = find_enable_by_class(driver, "iforgot-apple-id")
         id_input.click()
         id_input.send_keys(apple_id)
-        # 等待按钮可点击
-        find_enable_by_class(driver, "last").click()
-        try:
-            # 正常情况
-            msg = find_element_by_class(
-                driver, "subtitle").get_attribute("innerHTML")
-        except Exception as e:
-            # 超时未跳转
-            msg = find_element_by_class(
-                driver, "app-title").get_attribute("innerHTML")
+        # 识别验证码
+        msg = ''
+        count = 1
+        while True:
+            img = find_element_by_css(
+                driver, "img").get_attribute("src")
+            img = img.replace('data:image/jpeg;base64, ', '')
+            code = ocr.classification(img_base64=img)
+            code_input = find_element_by_class(driver, 'captcha-input')
+            code_input.send_keys(code)
+            time.sleep(1)
+            # 等待按钮可点击
+            find_enable_by_class(driver, "last").click()
+            try:
+                # 正常情况
+                msg = find_element_by_class(
+                    driver, "subtitle").get_attribute("innerHTML")
+                break
+            except Exception as e:
+                # 超时未跳转/解锁
+                msg = find_element_by_class(
+                    driver, "app-title").get_attribute("innerHTML")
+                # 验证未通过(错误)
+                if msg == "Having trouble signing in?":
+                    msg = find_element_by_class(
+                        driver, "form-message").get_attribute("innerHTML").strip()
+                    if msg == 'Your request could not be completed because of an error. Try again later.':
+                        msg = msg + '(建议换个不同运营商的VPS尝试)'
+                    if msg == "Please enter the characters you see or hear to continue.":
+                        if count < 5:
+                            print("验证码识别错误 (%s)，已尝试 %d 次，准备再试试..." %
+                                  (apple_id, count))
+                            count = count + 1
+                            continue
+                        else:
+                            print("验证码识别错误 (%s)，已尝试 %d 次，再见！" %
+                                  (apple_id, count))
+                    sendMsg("出错啦！" + msg)
+                    item["status"] = 0
+                break
 
         print(msg)
         # 重置密码
@@ -229,7 +269,7 @@ def check_appleid(item):
             for i in range(len(questions)):
                 answers[i].send_keys(
                     qa[questions[i].get_attribute("innerText")])
-            time.sleep(1)
+                time.sleep(1)
             find_enable_by_class(driver, "last").click()
             # 解锁并修改密码
             find_element_by_class(driver, "pwdChange").click()
@@ -256,7 +296,7 @@ def check_appleid(item):
             print("正在关闭 %s 的双重认证..." % apple_id)
             find_element_by_class(driver, "button-caption-link").click()
             driver.find_elements(by=By.CLASS_NAME, value="last")[1].click()
-            #driver.find_element(by=By.XPATH, value="/html/body/div[5]/div/div/recovery-unenroll-start/div/idms-step/div/div/div/div[3]/idms-toolbar/div/div/div/button[1]").click()
+            # driver.find_element(by=By.XPATH, value="/html/body/div[5]/div/div/recovery-unenroll-start/div/idms-step/div/div/div/div[3]/idms-toolbar/div/div/div/button[1]").click()
             # 输入生日
             find_element_by_class(driver, "date-input").send_keys(dob)
             find_enable_by_class(driver, "last").click()
@@ -270,6 +310,7 @@ def check_appleid(item):
             for i in range(len(questions)):
                 answers[i].send_keys(
                     qa[questions[i].get_attribute("innerText")])
+                time.sleep(1)
             find_enable_by_class(driver, "last").click()
             time.sleep(1)
             find_enable_by_class(driver, "last").click()
@@ -292,15 +333,6 @@ def check_appleid(item):
             update_pwd(api_host, apple_id, pwd_new)
             sendMsg(msg)
             return True
-        # 验证未通过(错误)
-        elif msg == "Having trouble signing in?":
-            msg = find_element_by_class(
-                driver, "form-message").get_attribute("innerHTML").strip()
-            if msg == 'Your request could not be completed because of an error. Try again later.':
-                msg = msg + '(建议换个不同运营商的VPS尝试)'
-            sendMsg("出错啦！" + msg)
-            item["status"] = 0
-            return
         else:
             print("我无法理解")
     except Exception as e:
@@ -321,6 +353,9 @@ token = config.get('token')
 chat_id = config.get('chat_id')
 apple_ids = config.get('apple_id')
 for i, item in enumerate(apple_ids):
+    if i > 0:
+        print('暂停10秒')
+        time.sleep(10)
     print('正在检查 %s ...' % item["id"])
     flag = check_appleid(item)
     if flag:
@@ -330,8 +365,6 @@ for i, item in enumerate(apple_ids):
                              time.localtime(round(time.time())))
     apple_data.append({"id": item['id'], "passwd": item['passwd'],
                       "status": item["status"], "last_reset_time": str_time})
-    print('暂停10秒')
-    time.sleep(10)
 
 # 构造一个 json 数据，供静态 HTML 使用
 print('正在写入 JSON 数据...')
