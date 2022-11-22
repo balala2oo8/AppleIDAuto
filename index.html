@@ -13,10 +13,11 @@
             margin: 10px;
         }
 
-        .demo-carousel {
+        .carousel {
             height: 200px;
             line-height: 200px;
             text-align: center;
+            font-size: 45px;
         }
 
         .apple-item {
@@ -26,22 +27,81 @@
         .apple-title {
             min-width: 60px;
         }
+
+        #list {
+            display: flex;
+            flex-wrap: wrap;
+            justify-content: space-between;
+        }
+
+        .tips {
+            padding: 3px 10px;
+            position: absolute;
+            top: 0;
+            width: 100%;
+            text-align: center;
+            font-size: 20px;
+            border: 0;
+            background-color: rgba(0, 0, 0, .2);
+            color: #fff;
+            transition-duration: .3s;
+            cursor: pointer;
+            box-sizing: border-box;
+        }
+
+        @media (min-width:1100px) {
+            .layui-col-md6 {
+                width: 33%;
+            }
+
+        }
+
+        @media (max-width:1100px) {
+            .layui-col-md6 {
+                width: 50%;
+            }
+        }
+
+        @media (max-width:752px) {
+            .layui-col-md6 {
+                width: 100%;
+            }
+
+            .carousel {
+                font-size: 35px;
+            }
+        }
+
+        @media(max-width:450px) {
+            .tips {
+                font-size: 16px;
+            }
+        }
     </style>
 </head>
 
 <body>
-    <div class="content" style="margin:0 auto;max-width: 960px;">
+    <div class="content" style="margin:0 auto;max-width: 1280px;">
         <div class="layui-tab layui-tab-brief" lay-filter="demo">
             <div class="layui-tab-content">
                 <div class="layui-tab-item layui-show">
                     <div class="layui-carousel" id="test1">
-                        <div carousel-item>
+                        <div carousel-item class="carousel">
                             <div>
-                                <p class="layui-bg-green demo-carousel">请不要从设置登录</p>
+                                <p class="layui-bg-green">请不要从设置登录</p>
                             </div>
                             <div>
-                                <p class="layui-bg-red demo-carousel">请不要绑定手机</p>
+                                <p class="layui-bg-red">请不要绑定手机</p>
                             </div>
+                            <div>
+                                <p class="layui-bg-orange">请不要登录 iCloud </p>
+                            </div>
+                            <div>
+                                <p class="layui-bg-cyan">下载后请务必退出</p>
+                            </div>
+                        </div>
+                        <div class="tips">
+                            不按提示操作导致手机被挂失，后果自负！
                         </div>
                     </div>
                 </div>
@@ -49,7 +109,7 @@
         </div>
         <div class="layui-bg-gray">
             <div class="layui-row layui-col-space15" id="list">
-                
+
             </div>
         </div>
     </div>
@@ -57,7 +117,7 @@
     <script src="./layui/clipboard.min.js"></script>
     <script src="./layui/layui.js" charset="utf-8"></script>
     <script>
-        $.getJSON("./data.json", function(data) {
+        $.getJSON("./data.json", function (data) {
             let html = ''
             for (const i in data) {
                 let item = data[i];
@@ -87,7 +147,7 @@
             }
             $('#list').append(html);
         })
-        
+
         var clipboard = new ClipboardJS('.copy-btn');
         clipboard.on('success', function (e) {
             e.trigger.innerText = e.trigger.innerText.replace('点我', '已');

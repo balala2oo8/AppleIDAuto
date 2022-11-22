@@ -1,0 +1,170 @@
+<!doctype html>
+<html lang="zh-CN">
+
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=5, viewport-fit=cover">
+    <meta name='robots' content='index, follow, max-image-preview:large, max-snippet:-1, max-video-preview:-1' />
+
+    <title>共享AppleID</title>
+    <meta property="og:locale" content="zh_CN" />
+
+    <link rel='stylesheet' href='static/css/header.min.css' media='all' />
+    <style>
+        button {
+            height: 38px;
+            line-height: 38px;
+            border: 1px solid transparent;
+            padding: 0 18px;
+            white-space: nowrap;
+            text-align: center;
+            font-size: 14px;
+            border-radius: 2px;
+            cursor: pointer;
+        }
+
+        button.btn-copy {
+            background-color: #009688;
+            color: #fff;
+        }
+        button.btn-danger {
+            color: #fff;
+            background-color: #FF5722;
+        }
+
+
+        button.btn-disabled {
+            border-color: #eee !important;
+            background-color: #FBFBFB !important;
+            color: #d2d2d2 !important;
+            cursor: not-allowed !important;
+            opacity: 1;
+        }
+    </style>
+</head>
+
+<body class="home blog wp-embed-responsive ct-loading" data-link="type-2" data-prefix="blog" data-header="type-1"
+    data-footer="type-1">
+    <div id="main-container">
+        <header id="header" class="ct-header" data-id="type-1" itemscope="">
+            <div data-device="desktop">
+                <div data-row="middle" data-column-set="2">
+                    <div class="ct-container">
+                        <div data-column="start" data-placements="1">
+                            <div data-items="primary">
+                                <div class="site-branding" data-id="logo" itemscope="itemscope">
+                                    <div class="site-title-container">
+                                        <span class="site-title " itemprop="name">
+                                            <a href="https://github.com/balala2oo8/AppleIDAuto" rel="home"
+                                                itemprop="url">
+                                                共享 Apple ID</a>
+                                        </span>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+            <div data-device="mobile">
+                <div data-row="middle" data-column-set="2">
+                    <div class="ct-container">
+                        <div data-column="start" data-placements="1">
+                            <div data-items="primary">
+                                <div class="site-branding" data-id="logo" itemscope="itemscope">
+                                    <div class="site-title-container">
+                                        <span class="site-title " itemprop="name">
+                                            <a href="https://github.com/balala2oo8/AppleIDAuto" rel="home"
+                                                itemprop="url">
+                                                共享 Apple ID</a>
+                                        </span>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </header>
+        <main id="main" class="site-main hfeed" itemscope="itemscope">
+            <div class="ct-container" data-vertical-spacing="top:bottom">
+                <section>
+                    <div class="entries" id="list" data-archive="default" data-layout="grid" data-cards="boxed">
+
+                    </div>
+                </section>
+            </div>
+        </main>
+        </footer>
+    </div>
+    <script src="./layui/jquery.min.js"></script>
+    <script src="./layui/clipboard.min.js"></script>
+    <script src="./layui/layui.js" charset="utf-8"></script>
+    <script>
+        var tips = ["请不要绑定手机", "请不要从设置登录", "请不要登录 iCloud ", "手机被锁，后果自负"]
+        $.getJSON("./data.json", function (data) {
+            let html = ''
+            for (const i in data) {
+                let item = data[i];
+                html += `
+                        <article
+                            class="entry-card status-publish format-standard hentry category-8"
+                            data-reveal="yes:`+ (parseInt(i) + 1) + `">
+                            <ul class="entry-meta" data-type="simple:slash">
+                                <li class="meta-categories" data-type="simple">账号`+ (parseInt(i) + 1) + `</li>
+                            </ul>
+                            <h2 class="entry-title">`+ tips[i % 4] + `
+                            </h2>
+                            <div class="entry-excerpt">
+                                <div><button type="button" data-clipboard-text="`+ item['id'] + `" class="btn-copy">点我复制账号，请勿绑定手机！</button></div>
+                                <div style="margin-top:10px"><button type="button" data-clipboard-text="`+ item['passwd'] + `" class="btn-copy btn-danger">点我复制密码，登录iCloud！会变砖！</button></div>
+                            </div>
+                            <div class="ct-ghost"></div>
+                            <ul class="entry-meta" data-type="simple:slash">
+                                <li class="meta-author" itemprop="author" itemscope=""
+                                    ><span itemprop="name">`+ (item['status'] ? '<span style="color:green">正常</span>' : '<span style="color:red">维护中</span>') + `</span></li>
+                                <li class="meta-date" itemprop="datePublished">`+ item['last_reset_time'] + `</li>
+                            </ul>
+                        </article>`;
+            }
+            $('#list').append(html);
+        })
+
+        var clipboard = new ClipboardJS('.btn-copy');
+        clipboard.on('success', function (e) {
+            e.trigger.innerText = e.trigger.innerText.replace('点我', '已');
+            e.trigger.classList.add('btn-disabled');
+            e.trigger.classList.remove('btn-copy', 'btn-danger');
+            layer.msg('复制成功！', {
+                time: 3000
+            });
+        });
+        clipboard.on('error', function (e) {
+            layer.msg('复制失败！', {
+                time: 3000
+            });
+        });
+
+        layui.use(['dropdown', 'util', 'layer'], function () {
+            var element = layui.element;
+            var layer = layui.layer
+                , carousel = layui.carousel //轮播
+            //执行一个轮播实例
+            carousel.render({
+                elem: '#test1'
+                , width: '100%' //设置容器宽度
+                , height: 200
+                , arrow: 'none' //不显示箭头
+                , anim: 'fade' //切换动画方式
+            });
+            //监听折叠
+            element.on('collapse(test)', function (data) {
+                layer.msg('展开状态：' + data.show);
+            });
+        });
+    </script>
+
+    <script src="./data.json"></script>
+</body>
+
+</html>

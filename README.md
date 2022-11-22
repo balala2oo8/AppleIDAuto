@@ -1,11 +1,11 @@
 
- 基于安全问题实现自动解锁 Apple ID 等功能
+ 基于安全问题实现自动解锁 Apple ID 等功能，任意一台小鸡均可运行，无配置要求
  
 # 功能
 - 自动解锁Apple ID
 - 自动关闭双重认证
 - 定时修改密码
-- 修改密码后 API 请求
+- 密码上报
 - tg 消息推送
 
 # 配置文件详解(config.json)
@@ -25,7 +25,7 @@ qa | 安全问题及答案 | 一个JSON对象，示例：<br>{"你的出生地�
 last_reset_time | 上次更新密码的时间戳(秒) | 默认0，不能为空
 reset_pwd_interval | 修改密码的间隔(分钟) | 如果大于100，那么即使没有被锁定，也会间隔此时间修改密码。建议>300，不建议设置太短
 status | 账号状态 | 默认1
-api_host | api地址 | 如果此项不为空，会在修改密码后请求此地址<br>请求方式：PUT<br>请求参数：{'apple_id': apple_id, 'passwd': passwd}
+api_host | api地址 | 可空，如果此项不为空，会在修改密码后请求此地址<br>请求方式：PUT<br>请求参数：{'apple_id': apple_id, 'passwd': passwd}
 
 # 使用方法
 - 要求 Python 3.7+
@@ -33,7 +33,7 @@ api_host | api地址 | 如果此项不为空，会在修改密码后请求此地
 
 #### Debian 10
 
-- 在宝塔新建一个网站
+- 在宝塔新建一个网站(如果会 Nginx 等配置，无需宝塔)
 - 进入网站目录
 - 下载代码 
 ```
@@ -56,11 +56,11 @@ crontab -e
 ``` 
 - Nginx 网站配置
 ```
-    # 限制访问来源，防止白嫖
-    valid_referers *.yourdomain.web;
-	  if ($invalid_referer) {
-		  return 404;
-    }
+# 限制访问来源，防止白嫖
+valid_referers *.yourdomain.web;
+  if ($invalid_referer) {
+	  return 404;
+}
 ```
 
 # 其他

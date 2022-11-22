@@ -4,7 +4,6 @@
 from selenium import webdriver
 from selenium.webdriver.chrome.service import Service
 from selenium.webdriver.common.by import By
-from selenium.common.exceptions import NoSuchElementException
 from selenium.webdriver.support.ui import WebDriverWait
 from selenium.webdriver.support import expected_conditions as EC
 import os
@@ -61,6 +60,12 @@ def create_error_file(html):
 
 def find_element_by_class(driver, class_name):
     return WebDriverWait(driver, delay).until(EC.presence_of_element_located((By.CLASS_NAME, class_name)), '未找到 Class 为 "%s" 的元素' % class_name)
+
+# 查找元素 by class all
+
+
+def find_element_by_class_all(driver, class_name):
+    return WebDriverWait(driver, delay).until(EC.presence_of_all_elements_located((By.CLASS_NAME, class_name)), '未找到 Class 为 "%s" 的元素' % class_name)
 
 
 # 查找元素 by id
@@ -130,19 +135,19 @@ def createPwd(passwordLength):
 # 解锁操作
 
 
-def check_appleid(item):
-    apple_id = item["id"]
-    dob = item["dob"]
-    qa = item["qa"]
+def check_appleid(account):
+    apple_id = account["id"]
+    dob = account["dob"]
+    qa = account["qa"]
     if len(apple_id) < 6 or len(dob) != 10 or len(qa) != 3:
         print("Aplle ID(%s) 信息有误！请检查！" % apple_id)
         return
-    api_host = item["api_host"]
-    last_reset_time = item["last_reset_time"]
-    reset_pwd_interval = item["reset_pwd_interval"]
+    api_host = account["api_host"]
+    last_reset_time = account["last_reset_time"]
+    reset_pwd_interval = account["reset_pwd_interval"]
     now = round(time.time())
     is_reset_pwd = now - last_reset_time > reset_pwd_interval * 60
-    item["status"] = 1
+    account["status"] = 1
     try:
         driver = webdriver.Chrome(service=service, options=options)
         driver.implicitly_wait(delay)
@@ -159,10 +164,22 @@ def check_appleid(item):
             img = find_element_by_css(
                 driver, "img").get_attribute("src")
             img = img.replace('data:image/jpeg;base64, ', '')
-            code = ocr.classification(img_base64=img)
+            code = ocr.classification(img)
+            # is_img_base64 = re.match(r'^data:image/jpeg;base64,(.*)', img)
+            # code = ""
+            # if is_img_base64:
+            #     try:
+            #         code = ocr.classification(is_img_base64.group(1))
+            #     except Exception as e:
+            #         print("非法的图片", e, is_img_base64.group(1))
+            #         msg = "不能识别的图片！可能图片加载失败！"
+            #         break
+            # else:
+            #     msg = "未找到图片验证码！"
+            #     break
+
             code_input = find_element_by_class(driver, 'captcha-input')
             code_input.send_keys(code)
-            time.sleep(1)
             # 等待按钮可点击
             find_enable_by_class(driver, "last").click()
             try:
@@ -185,15 +202,14 @@ def check_appleid(item):
                             print("验证码识别错误 (%s)，已尝试 %d 次，准备再试试..." %
                                   (apple_id, count))
                             count = count + 1
+                            time.sleep(1)
                             continue
                         else:
-                            print("验证码识别错误 (%s)，已尝试 %d 次，再见！" %
-                                  (apple_id, count))
-                    sendMsg("出错啦！" + msg)
-                    item["status"] = 0
+                            msg = "验证码识别错误，已尝试 %d 次，再见！" % count
+                    account["status"] = 0
                 break
 
-        print(msg)
+        print(msg + "(%s)" % apple_id)
         # 重置密码
         if msg == "Select what information you want to reset.":
             if (not is_reset_pwd) or reset_pwd_interval < 100:
@@ -202,50 +218,44 @@ def check_appleid(item):
 
             print("重置密码...")
             find_enable_by_class(driver, "last").click()
-            find_element_by_id(driver, 'optionquestions')
-            driver.find_elements(
-                by=By.CLASS_NAME, value="form-radiobutton-indicator")[1].click()
+            find_element_by_id(driver, 'optionemail')
+            find_element_by_class_all(
+                driver, "form-radiobutton-indicator")[1].click()
             find_enable_by_class(driver, "last").click()
 
             # 输入生日
             find_enable_by_class(driver, "date-input").send_keys(dob)
-            time.sleep(1)
             find_enable_by_class(driver, "last").click()
 
-            # 回答问题
-            find_enable_by_class(driver, "question")
-            time.sleep(1)  # 等待两个文本框出现
-            questions = driver.find_elements(
-                by=By.CLASS_NAME, value="question")
-            answers = driver.find_elements(
-                by=By.CLASS_NAME, value="security-answer")
-            for i in range(len(questions)):
-                answers[i].send_keys(
-                    qa[questions[i].get_attribute("innerText")])
+            # 回答问题 等待两个文本框出现
+            questions = find_element_by_class_all(driver, "question")
+            answers = find_element_by_class_all(driver, "security-answer")
+            for i, q in enumerate(questions):
+                time.sleep(1)
+                answers[i].send_keys(qa[q.get_attribute("innerText")])
             find_enable_by_class(driver, "last").click()
             # 设置密码 createPwd
             find_element_by_id(driver, "password")
             pwd_new = createPwd(12)
-            pwd_inputs = driver.find_elements(
-                by=By.CLASS_NAME, value="form-textbox-input")
-            pwd_inputs[0].send_keys(pwd_new)
-            pwd_inputs[1].click()
-            pwd_inputs[1].send_keys(pwd_new)
-            time.sleep(1)
+            pwd_inputs = find_element_by_class_all(
+                driver, "form-textbox-input")
+            for i, input in enumerate(pwd_inputs):
+                time.sleep(1)
+                input.send_keys(pwd_new)
             find_enable_by_class(driver, "last").click()
 
             msg = apple_id + " 密码已重置为 %s " % pwd_new
-            item["passwd"] = pwd_new
-            item["last_reset_time"] = now
-            update_pwd(api_host, apple_id, pwd_new)
+            account["passwd"] = pwd_new
+            account["last_reset_time"] = now
             sendMsg(msg)
+            update_pwd(api_host, apple_id, pwd_new)
             return True
         # 解锁
         elif msg == "Select how you want to unlock your account:":
             print("正在解锁 %s ..." % apple_id)
             find_element_by_id(driver, 'optionemail')
-            oq = driver.find_elements(
-                by=By.CLASS_NAME, value="form-radiobutton-indicator")
+            oq = find_element_by_class_all(
+                driver, "form-radiobutton-indicator")
             # 只能通过邮件解锁的情况
             if len(oq) == 1:
                 oq[0].click()
@@ -256,88 +266,77 @@ def check_appleid(item):
             # 通过回答问题解锁
             oq[1].click()
             find_enable_by_class(driver, "last").click()
-            find_element_by_class(driver, "date-input").send_keys(dob)
-            time.sleep(1)
+            find_enable_by_class(driver, "date-input").send_keys(dob)
             find_enable_by_class(driver, "last").click()
-            # 回答问题
-            find_enable_by_class(driver, "question")
-            time.sleep(1)  # 等待两个文本框出现
-            questions = driver.find_elements(
-                by=By.CLASS_NAME, value="question")
-            answers = driver.find_elements(
-                by=By.CLASS_NAME, value="security-answer")
-            for i in range(len(questions)):
-                answers[i].send_keys(
-                    qa[questions[i].get_attribute("innerText")])
+            # 回答问题 等待两个文本框出现
+            questions = find_element_by_class_all(driver, "question")
+            answers = find_element_by_class_all(driver, "security-answer")
+            for i, q in enumerate(questions):
                 time.sleep(1)
+                answers[i].send_keys(qa[q.get_attribute("innerText")])
             find_enable_by_class(driver, "last").click()
             # 解锁并修改密码
-            find_element_by_class(driver, "pwdChange").click()
+            #find_element_by_class(driver, "pwdChange").click()
             # 等待密码框出现
             find_element_by_id(driver, "password")
             pwd_new = createPwd(12)
-            pwd_inputs = driver.find_elements(
-                by=By.CLASS_NAME, value="form-textbox-input")
-            pwd_inputs[0].send_keys(pwd_new)
-            pwd_inputs[1].click()
-            pwd_inputs[1].send_keys(pwd_new)
-            time.sleep(1)
+            pwd_inputs = find_element_by_class_all(
+                driver, "form-textbox-input")
+            for i, input in enumerate(pwd_inputs):
+                time.sleep(1)
+                input.send_keys(pwd_new)
             find_enable_by_class(driver, "last").click()
             find_element_by_class(driver, "done")
 
-            msg = apple_id + " 已解锁，新密码 %s " % pwd_new
-            item["passwd"] = pwd_new
-            item["last_reset_time"] = now
-            update_pwd(api_host, apple_id, pwd_new)
+            msg = apple_id + " 已解锁，密码重置为 %s " % pwd_new
+            account["passwd"] = pwd_new
+            account["last_reset_time"] = now
             sendMsg(msg)
+            update_pwd(api_host, apple_id, pwd_new)
             return True
         # 双重认证
         elif msg == "Confirm your phone number.":
             print("正在关闭 %s 的双重认证..." % apple_id)
             find_element_by_class(driver, "button-caption-link").click()
-            driver.find_elements(by=By.CLASS_NAME, value="last")[1].click()
+            find_element_by_class_all(driver, "last")[1].click()
             # driver.find_element(by=By.XPATH, value="/html/body/div[5]/div/div/recovery-unenroll-start/div/idms-step/div/div/div/div[3]/idms-toolbar/div/div/div/button[1]").click()
             # 输入生日
             find_element_by_class(driver, "date-input").send_keys(dob)
             find_enable_by_class(driver, "last").click()
             # 回答问题
-            find_element_by_class(driver, "question")
-            time.sleep(2)
-            questions = driver.find_elements(
-                by=By.CLASS_NAME, value="question")
-            answers = driver.find_elements(
-                by=By.CLASS_NAME, value="form-textbox-input")
-            for i in range(len(questions)):
-                answers[i].send_keys(
-                    qa[questions[i].get_attribute("innerText")])
+            questions = find_element_by_class_all(driver, "question")
+            answers = find_element_by_class_all(driver, "form-textbox-input")
+            for i, q in enumerate(questions):
                 time.sleep(1)
+                answers[i].send_keys(qa[q.get_attribute("innerText")])
             find_enable_by_class(driver, "last").click()
             time.sleep(1)
             find_enable_by_class(driver, "last").click()
             time.sleep(1)
             # 设置密码 createPwd
             pwd_new = createPwd(12)
-            pwd_inputs = driver.find_elements(
-                by=By.CLASS_NAME, value="form-textbox-input")
-            pwd_inputs[0].send_keys(pwd_new)
-            pwd_inputs[1].click()
-            pwd_inputs[1].send_keys(pwd_new)
+            pwd_inputs = find_element_by_class_all(
+                driver, "form-textbox-input")
+            for i, input in enumerate(pwd_inputs):
+                time.sleep(1)
+                input.send_keys(pwd_new)
             find_enable_by_class(driver, "last").click()
             find_element_by_class(driver, "idms-modal-content")
             time.sleep(1)
-            driver.find_elements(by=By.CLASS_NAME, value="last")[1].click()
+            find_element_by_class_all(driver, "last")[1].click()
 
-            msg = apple_id + " 双重认证已关闭，新密码 %s " % pwd_new
-            item["passwd"] = pwd_new
-            item["last_reset_time"] = now
-            update_pwd(api_host, apple_id, pwd_new)
+            msg = apple_id + " 双重认证已关闭，密码重置为 %s " % pwd_new
+            account["passwd"] = pwd_new
+            account["last_reset_time"] = now
             sendMsg(msg)
+            update_pwd(api_host, apple_id, pwd_new)
             return True
         else:
             print("我无法理解")
+            sendMsg("出错啦！(%s) %s" % (apple_id, msg))
     except Exception as e:
         msg = '检查 %s 时，超时了。%s' % (apple_id, str(e))
-        item["status"] = 0
+        account["status"] = 0
         sendMsg(msg)
         create_error_file(driver.page_source)
     finally:
@@ -352,19 +351,19 @@ with open(mypath + '/config.json', 'r', encoding='utf-8') as f:
 token = config.get('token')
 chat_id = config.get('chat_id')
 apple_ids = config.get('apple_id')
-for i, item in enumerate(apple_ids):
+for i, account in enumerate(apple_ids):
     if i > 0:
         print('暂停10秒')
         time.sleep(10)
-    print('正在检查 %s ...' % item["id"])
-    flag = check_appleid(item)
+    print('正在检查 %s ...' % account["id"])
+    flag = check_appleid(account)
     if flag:
         save = flag
-    # str_time = time.strftime(u"%Y年%m月%d日 %H:%M:%S",time.localtime(item['last_reset_time']))
+    # str_time = time.strftime(u"%Y年%m月%d日 %H:%M:%S",time.localtime(account['last_reset_time']))
     str_time = time.strftime("%Y年%m月%d日 %H:%M:%S",
                              time.localtime(round(time.time())))
-    apple_data.append({"id": item['id'], "passwd": item['passwd'],
-                      "status": item["status"], "last_reset_time": str_time})
+    apple_data.append({"id": account['id'], "passwd": account['passwd'],
+                      "status": account["status"], "last_reset_time": str_time})
 
 # 构造一个 json 数据，供静态 HTML 使用
 print('正在写入 JSON 数据...')
