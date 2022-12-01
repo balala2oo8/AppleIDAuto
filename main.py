@@ -50,7 +50,7 @@ delay = 10
 
 
 def create_error_file(html):
-    with open(mypath + "/error.html", "w") as op:
+    with open(mypath + "/error.html", "w", encoding='gb18030') as op:
         op.write(html)
         op.close()
 
@@ -202,7 +202,6 @@ def check_appleid(account):
                             print("验证码识别错误 (%s)，已尝试 %d 次，准备再试试..." %
                                   (apple_id, count))
                             count = count + 1
-                            time.sleep(1)
                             continue
                         else:
                             msg = "验证码识别错误，已尝试 %d 次，再见！" % count
@@ -275,8 +274,12 @@ def check_appleid(account):
                 time.sleep(1)
                 answers[i].send_keys(qa[q.get_attribute("innerText")])
             find_enable_by_class(driver, "last").click()
-            # 解锁并修改密码
-            #find_element_by_class(driver, "pwdChange").click()
+            # 确定已经进入下一步
+            find_enable_by_class(driver, "content-item")
+            subtitle = find_enable_by_class(driver, "subtitle")
+            if subtitle.get_attribute("innerText") == 'Ready to Unlock':
+                # 解锁并修改密码
+                find_element_by_class(driver, "pwdChange").click()
             # 等待密码框出现
             find_element_by_id(driver, "password")
             pwd_new = createPwd(12)
@@ -299,7 +302,6 @@ def check_appleid(account):
             print("正在关闭 %s 的双重认证..." % apple_id)
             find_element_by_class(driver, "button-caption-link").click()
             find_element_by_class_all(driver, "last")[1].click()
-            # driver.find_element(by=By.XPATH, value="/html/body/div[5]/div/div/recovery-unenroll-start/div/idms-step/div/div/div/div[3]/idms-toolbar/div/div/div/button[1]").click()
             # 输入生日
             find_element_by_class(driver, "date-input").send_keys(dob)
             find_enable_by_class(driver, "last").click()
